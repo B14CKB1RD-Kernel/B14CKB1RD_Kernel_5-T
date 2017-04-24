@@ -13,6 +13,7 @@
  **  <author> <data> <desc>
  **  bean.wu@BSP.TP modified for oem 2017-09-01 8998_O tp_driver
  ****************************************************************************/
+#include "synaptics_driver_s3320.h"
 #include <linux/of_gpio.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
@@ -5116,6 +5117,18 @@ static int synaptics_mode_change(int mode)
 		TPD_ERR("%s: set dose mode[0x%x] err!!\n", __func__, tmp_mode);
 	return ret;
 }
+
+void synaptics_s3320_enable_global(bool enabled)
+{
+	if (ts_g == NULL)
+		return;
+
+	if (enabled)
+		touch_enable(ts_g);
+	else
+		touch_disable(ts_g);
+}
+
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {

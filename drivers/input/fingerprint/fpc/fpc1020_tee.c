@@ -30,6 +30,7 @@
  * as published by the Free Software Foundation.
  */
 
+#include "fpc1020_tee.h"
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -72,9 +73,11 @@ struct fpc1020_data {
 	struct device *dev;
     struct wake_lock ttw_wl;
 	int irq_gpio;
+	atomic_t irq_enable;
 	int rst_gpio;
 	int irq_num;
 	struct mutex lock;
+	spinlock_t spinlock;
 	bool prepared;
 
 	struct pinctrl         *ts_pinctrl;
@@ -100,6 +103,8 @@ struct fpc1020_data {
 	spinlock_t irq_lock;
 	struct completion irq_sent;
 };
+
+static struct fpc1020_data *fpc1020_g = NULL;
 
 static int fpc1020_request_named_gpio(struct fpc1020_data *fpc1020,
 		const char *label, int *gpio)
@@ -553,6 +558,26 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 	return IRQ_HANDLED;
 }
 
+static void fpc1020_enable(struct fpc1020_data *fpc1020)
+{
+	if(0 == atomic_read(&fpc1020->irq_enable))
+	{
+		if(fpc1020->irq_gpio)
+			enable_irq(gpio_to_irq(fpc1020->irq_gpio));
+		atomic_set(&fpc1020->irq_enable,1);
+	}
+}
+
+static void fpc1020_disable(struct fpc1020_data *fpc1020)
+{
+	if(1 == atomic_read(&fpc1020->irq_enable))
+	{
+		if(fpc1020->irq_gpio)
+			disable_irq_nosync(gpio_to_irq(fpc1020->irq_gpio));
+		atomic_set(&fpc1020->irq_enable,0);
+	}
+}
+
 static int fpc1020_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -655,6 +680,7 @@ static int fpc1020_probe(struct platform_device *pdev)
 				gpio_to_irq(fpc1020->irq_gpio));
 		goto exit;
 	}
+	atomic_set(&fpc1020->irq_enable,1);
 	dev_info(dev, "requested irq %d\n", gpio_to_irq(fpc1020->irq_gpio));
 
 	/* Request that the interrupt should not be wakeable */
@@ -704,11 +730,26 @@ static int fpc1020_probe(struct platform_device *pdev)
     *   Goodix   1            0             1
     *   
     */
+	fpc1020_g = fpc1020;
 	dev_info(dev, "%s: ok\n", __func__);
 exit:
 	return rc;
 }
 
+void fpc1020_enable_global(bool enabled)
+{
+	if (fpc1020_g == NULL)
+		return;
+
+	spin_lock(&fpc1020_g->spinlock);
+
+	if (enabled)
+		fpc1020_enable(fpc1020_g);
+	else
+		fpc1020_disable(fpc1020_g);
+
+	spin_unlock(&fpc1020_g->spinlock);
+}
 
 static struct of_device_id fpc1020_of_match[] = {
 	{ .compatible = "fpc,fpc1020", },
