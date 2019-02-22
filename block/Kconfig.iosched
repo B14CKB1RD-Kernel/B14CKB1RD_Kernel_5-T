@@ -88,7 +88,7 @@ config IOSCHED_TRIPNDROID
 
 config IOSCHED_SWITCHER
 	bool "Use Noop while the screen is off"
-	depends on IOSCHED_NOOP
+	depends on IOSCHED_ANXIETY
 	---help---
 	  This enables a driver that switches the I/O scheduler for a single
 	  block device to Noop when the screen turns off, and back to its
