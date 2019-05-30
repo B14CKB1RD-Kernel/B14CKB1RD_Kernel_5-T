@@ -589,7 +589,7 @@ store_afs_threshold(4);
 // ZZ: show zzmoove version info in sysfs
 #define declare_show_version(_gov)					\
 static ssize_t show_version_gov_sys					\
-	(struct kobject *kobj, struct attribute *attr, char *buf)	\
+	(struct kobject *kobj, struct kobj_attribute *attr, char *buf)	\
 {									\
 	return sprintf(buf, "%s\n", ZZMOOVE_VERSION);			\
 }									\
